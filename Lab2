@@ -1,0 +1,272 @@
+import javax.swing.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.*;
+
+public class Lab2 extends JFrame implements ActionListener {
+	JButton open = new JButton("Next Program");
+	JTextArea result = new JTextArea(20,40);
+	JLabel errors = new JLabel();
+	JScrollPane scroller = new JScrollPane();
+	
+	public Lab2() {
+		setLayout(new java.awt.FlowLayout());
+		setSize(500,430);
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+		add(open); open.addActionListener(this);
+		scroller.getViewport().add(result);
+		add(scroller);
+		add(errors);
+	}
+	
+	public void actionPerformed(ActionEvent evt) {
+		result.setText("");	//clear TextArea for next program
+		errors.setText("");
+		processProgram();
+	}
+	
+	public static void main(String[] args) {
+		Lab2 display = new Lab2();
+		display.setVisible(true);
+	}
+	
+	String getFileName() {
+		JFileChooser fc = new JFileChooser();
+		int returnVal = fc.showOpenDialog(this);
+		if (returnVal == JFileChooser.APPROVE_OPTION)
+			return fc.getSelectedFile().getPath();
+		else
+			return null;
+	}
+	//Hiep Nguyen's work
+	public void processProgram() {
+ 		this.result.setText("");
+		this.errors.setText("");
+		String fileName = getFileName();
+		ArrayList<String> listOfLines = new ArrayList<String>();
+
+		//add lines into arraylist
+		if(fileName != null) 
+		try {
+			BufferedReader in = new BufferedReader(new FileReader(fileName));
+			String line;
+			
+			while((line = in.readLine()) != null) {
+				listOfLines.add(line.trim());
+			}
+			in.close();
+		}
+		
+		catch (IOException e) {
+			errors.setText("ERROR" + e);
+			return;
+		}
+		//check if END is the last statement
+		if (!listOfLines.get(listOfLines.size()-1).equals("END")) {
+			errors.setText("END MUST BE THE LAST STATEMENT");
+		}
+		
+		
+		
+		
+		for(int i = 0; i < listOfLines.size(); i++) {
+			
+			int lineNumber = i + 1;
+			StringTokenizer breaker = new StringTokenizer(listOfLines.get(i), " \t\n.,:\';()&%$@"); 
+				//add tokens of each line into seperate array and loop through the array
+				ArrayList<String> Line = new ArrayList<String>();
+				while(breaker.hasMoreTokens()) {
+					String tok = breaker.nextToken();
+					Line.add(tok);
+				}
+				
+				
+				//CONDITIONAL STATEMENT
+				if(Line.get(0).equals("IF") == true) {
+					if(!Character.isLetter(Line.get(1).charAt(0))) {
+						errors.setText("In line " + lineNumber + " the token following IF must be a valid variable");
+						return;
+					}
+					if(!Character.isLetter(Line.get(1).charAt(0))) {
+						errors.setText("In line " + lineNumber + " the token following IF must be a valid variable");
+						return;
+					}
+					if(!(Line.get(2).equals("IS"))) {
+						errors.setText("In line " + lineNumber + " missing keyword IS");
+						return;
+					}
+					if(!(Line.get(4).equals("THEN"))) {
+						errors.setText("In line " + lineNumber + " missing keyword THEN");
+						return;
+					}
+					//store parameter values
+					double para1 = storeValue(Line.get(1));
+					double para2 = storeValue(Line.get(3));
+					if(para1 == para2) {
+						//add everything after THEN to an arrayList representing the simple statement and loop
+						ArrayList<String> subArr = new ArrayList<String>();
+						for(int j = 5; j < Line.size(); j++) {
+							subArr.add(Line.get(j));
+						}
+						
+					//if simple statement is print
+					if(subArr.get(0).equals("PRINT") && isVariable(subArr.get(1)) && (subArr.size() == 2)) {
+						printMethod(subArr);
+					}
+					
+					//if simple statement is goto
+				else if(subArr.get(0).equals("GOTO") && (subArr.size() == 2)) {
+						String address = subArr.get(1);
+						int a = 0;
+						try {
+							a = (int) Integer.parseInt(address);
+						}
+						catch(NumberFormatException e) {
+							errors.setText("In line " + lineNumber + " illegal GOTO command");
+							return;
+						}
+						i = a - 2; //since i is in a loop increment by 1 each time, i = (a - 1) - 1
+						continue;
+					}
+					
+					
+					
+					
+					//if simple statement is an expression
+					else if(isVariable(subArr.get(0)) == true && subArr.get(1).equals("=") == true) {
+						processVarEqEx(subArr);
+						}
+					else {
+						errors.setText("In line " + lineNumber + " illegal simple statements within conditional statement");
+						return;
+						}
+					
+					
+					}
+				}
+				
+				//GOTO STATEMENT
+				else if(Line.get(0).equals("GOTO") == true) {
+					if(Line.size() != 2) {
+						errors.setText("In line " + lineNumber + " illegal GOTO command");
+						return;
+					}
+					String address = Line.get(1);
+					if (Integer.parseInt(address) <= 0 || Integer.parseInt(address) > listOfLines.size() - 1 ) {
+						errors.setText("In line " + lineNumber + " illegal GOTO command");
+						return;
+					}
+					int a = 0;
+					try {
+						a = (int) Integer.parseInt(address);
+					}
+					catch(NumberFormatException e) {
+						errors.setText("In line " + lineNumber + " illegal GOTO command");
+						return;
+					}
+					i = a - 2;
+					continue;
+				}
+				
+				
+				//PRINT STATEMENT
+				else if(Line.get(0).equals("PRINT") == true){
+					if(Line.size() > 2) {
+						errors.setText("In line " + lineNumber + " too many tokens on PRINT");
+						return;
+					}
+					if(!isVariable(Line.get(1))) {
+						errors.setText("In line " + lineNumber + " there must be a valid variable after PRINT");
+						return;
+					}
+					printMethod(Line);
+					continue;
+				}
+				//EXPRESSION
+				else if(Character.isLetter(Line.get(0).charAt(0))){
+					if(!isVariable(Line.get(0))) {
+						errors.setText("In line " + lineNumber + " illegal variable");
+						return;
+					}
+					if(!Line.get(1).equals("=")) {
+						errors.setText("In line " + lineNumber + " missing assignment operator");
+						return;
+					}
+					processVarEqEx(Line);
+					continue;
+				}
+				
+				else if(Line.get(0).equals("END") == true) {
+					if(Line.size() > 1) {
+						errors.setText("In line " + lineNumber + " invalid END statement");
+						return;
+					}
+					else return;
+				}
+				else {
+					errors.setText("In line " + lineNumber + " invalid statement");
+				}
+			
+		}
+	}
+	
+	
+	public void printMethod(ArrayList<String> printLine) {
+		double var = storeValue(printLine.get(1));
+		result.append(String.valueOf(Double.valueOf(var) + "\n"));
+	}
+	
+	
+	HashMap<String, Double> hash = new HashMap<String, Double>();
+	public void processVarEqEx(ArrayList<String> expression) {
+		double para1 = storeValue(expression.get(2));
+		 for (int b = 3; b < expression.size(); b += 2) {
+		      if (b == expression.size() - 1)
+		        errors.setText("illegal expression"); 
+		      double para2 = storeValue(expression.get(b+1));
+		      if (expression.get(b).equals("+")) {
+		        para1 += para2;
+		      } 
+		      else if (expression.get(b).equals("-")) {
+		        para1 -= para2;
+		      } 
+		      else if (expression.get(b).equals("*")) {
+		        para1 *= para2;
+		      } 
+		      else if (expression.get(b).equals("/")) {
+		        para1 /= para2;
+		      } 
+		      else {
+		        errors.setText(expression.get(b) +  " is invalid operator");
+		      } 
+		    }
+		 hash.put(expression.get(0), Double.valueOf(para1));
+	}
+	
+	public static boolean isVariable(String var) {
+		if (!Character.isLetter(var.charAt(0)))
+		      return false; 
+		    for (int i = 1; i < var.length(); i++) {
+		      if (!Character.isLetterOrDigit(var.charAt(i)))
+		        return false; 
+		    } 
+		    return true;
+	}
+	
+	public double storeValue(String var) {
+		if(Character.isLetter(var.charAt(0))) {
+			if(!isVariable(var)) {
+				errors.setText("Illegal variable");
+			}
+			if(hash.containsKey(var)) {
+				return (Double)hash.get(var).doubleValue();	
+			}
+			errors.setText("Undefined variable");
+			
+		}
+		return Double.parseDouble(var);
+	}
+}		
+
+
+
